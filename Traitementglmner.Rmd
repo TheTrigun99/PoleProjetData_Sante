@@ -12,5 +12,45 @@ library(tidyr)
 import des données
 ```{r}
 df <- read_excel("Data_salive_steroides_cinetique.xlsx")
+head(df)
+```
+On passe en format long pour donner le temps de la journée au modèle. On va d'abord se concentrer sur un seul stéroide pour commencer, ici 17OHP.
+```{r}
+df <- df %>%
+  pivot_longer(
+    cols = c(`8h_17OHP`, `12h_17OHP`, `16h_17OHP`, `20h_17OHP`),
+    names_to = "Time",
+    values_to = "steroid_17OHP"
+  ) %>%
+  mutate(
+    # Nettoyer l'heure pour avoir un truc propre
+    Time = factor(Time,
+                  levels = c("8h_17OHP", "12h_17OHP", "16h_17OHP", "20h_17OHP"),
+                  labels = c("8", "12", "16", "20")),
+    Groupe_bin = ifelse(Groupe == "Gp non contrôlé", 1, 0),
+    Groupe_bin = factor(Groupe_bin),
+    Gender = factor(Gender),
+    `Puberty stage` = factor(`Puberty stage`),
+    Patient_number = factor(`Patient number`)
+  )
 ```
 
+On enlève l'instabilité (on a pas assez de donnée et les données sont trop disperses sur Puberté, donc on coupe en 2 cas pour + de stabilité)
+```{r}
+df <- df %>%
+  mutate(
+    Puberty_stage_simple = case_when(
+      `Puberty stage` %in% c(1, 2) ~ "prepubertal",
+      TRUE ~ "pubertal"
+    ),
+    Puberty_stage_simple = factor(Puberty_stage_simple)
+  )
+```
+Comme on s'intérèsse que au 17OHP pour l'instant, on garde que ce qui nous intéresse:
+```{r}
+df_d<- df %>%
+  select(Patient_number, Gender, Puberty_stage_simple,
+         Time, steroid_17OHP, Groupe_bin)
+```
+
+On va maintenant lancer le modèle.
