@@ -10,7 +10,7 @@ df <- df %>%
     Patient_number = as.integer(stringr::str_extract(PATIENT, "(?<=P)\\d+")),
     Time_Point = as.integer(stringr::str_extract(PATIENT, "(?<=_T)\\d+"))
   )
-
+# 
 # Log-transformation du stéroïde choisi histoire de normaliser
 df <- df %>%
   mutate(log_steroid = log(`8h_CORTISONE` + 1e-6)) # Ajouter un petit constant pour éviter log(0)

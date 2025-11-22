@@ -1,0 +1,15 @@
+# Generalized linear mixed effects regression
+
+import des libraries
+```{r}
+library(lme4)
+library(dplyr)
+library(readxl)
+library(stringr)
+library(tidyr)
+```
+
+```{r}
+df <- read_excel("Data_salive_steroides_cinetique.xlsx")
+```
+
