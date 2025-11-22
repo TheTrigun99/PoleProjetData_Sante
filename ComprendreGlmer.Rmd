@@ -1,0 +1,88 @@
+#Notebook pour comprendre Glmer
+
+```{r}
+library(tidyverse)
+library(lme4)
+library(broom)
+library(broom.mixed)
+library(patchwork)
+```
+
+```{r}
+data("sleepstudy")
+```
+le graphe suivant n'est pas bon, car on considère que toutes les observations sont indépendantes entre elles, alors que pour un même un subject, les obs sont corrélées, mais faut se faire une idée. 
+```{r}
+library(ggplot2)
+ggplot(sleepstudy, aes(x = Days, y = Reaction)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+Moins on dort, plus on a un tdr élevé, logique.
+```{r}
+lme_sleep1 <- lmer(Reaction ~ Days + (1|Subject), data = sleepstudy)
+summary(lme_sleep1)
+```
+On va plot les résultats pour chaque patient
+```{r}
+lm_sleep <- lm(Reaction ~ Days, data = sleepstudy)
+
+# set up our basic plot
+ggplot(sleepstudy, aes(x = Days, y = Reaction)) +
+  
+  # create separate plots for each subject in the sample
+  # and add the data points
+  facet_wrap(facets = vars(Subject), nrow = 3) +
+  geom_point() +
+  
+  # this adds the line of best fit for the whole sample
+  # (without the random effect), using coefficients
+  # from our simple linear model object
+  geom_line(data = augment(lm_sleep), aes(y = .fitted)) + 
+  
+  # and finally, this will add different lines of best fit
+  # for each subject as calculated in our mixed model object
+  geom_line(data = augment(lme_sleep1), aes(y = .fitted), colour = "blue")
+```
+On voit qu'on a des soucis pour certains patients, par ex 371 ou le manque de sommeil met plus de temps à affecter son tdr.
+  On ajoute cette fois une random slope pour palier à ça, à priori ici c'est pertinent.
+```{r}
+lme_sleep2 <- lmer(Reaction ~ Days + (1 + Days|Subject), data = sleepstudy)
+
+summary(lme_sleep2)
+```
+```{r}
+ggplot(sleepstudy, aes(x = Days, y = Reaction)) +
+  facet_wrap(facets = vars(Subject), nrow = 3) +
+  geom_point() +
+  
+  # the global line of best fit
+  geom_line(data = augment(lm_sleep), aes(y = .fitted)) + 
+  
+  # our previous lines of best fit, with random intercepts
+  # but constant slope
+  geom_line(data = augment(lme_sleep1), aes(y = .fitted), colour = "blue") +
+  
+  # our lines of best with random intercepts and random slopes
+  geom_line(data = augment(lme_sleep2), aes(y = .fitted), colour = "red") 
+```
+On voit que le modèle est plus accurate (lignes rouges).
+
+```{r}
+ggplot(sleepstudy, aes(x = Days, y = Reaction)) +
+  facet_wrap(facets = vars(Subject), nrow = 3) +
+  geom_point() +
+  
+  # the global line of best fit
+  geom_line(data = augment(lm_sleep), aes(y = .fitted)) + 
+  
+  # random intercepts only
+  geom_line(data = augment(lme_sleep1), aes(y = .fitted), colour = "blue") +
+  
+  # random intercepts and random slopes
+  geom_line(data = augment(lme_sleep2), aes(y = .fitted), colour = "red") +
+  
+  # individual regression lines for each individual
+  geom_smooth(method = "lm", se = FALSE, colour = "green", linewidth = 0.5)
+```
+Ici on met en évidence le shrinkage d'information avec un random effect. Pour cela on compare les droites vertes et rouges. Le vert correspond à un RL sur chaque subject indépendamment (no pooling) tandis que le rouge (partial pooling) correspond à notre mixed effects RL. On voit que les droites rouges se rapprochent plus des droites noires: la droite globale tracée au début (complete pooling).
