@@ -9,6 +9,7 @@ library(stringr)
 library(tidyr)
 ```
 
+import des données
 ```{r}
 df <- read_excel("Data_salive_steroides_cinetique.xlsx")
 ```
