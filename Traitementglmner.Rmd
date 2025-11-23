@@ -81,6 +81,7 @@ mod_17ohp <- glmer(
 summary(mod_17ohp)
 ```
 On voit que le steroid a un effet très significatif pour prédire le groupe. Gender importe aussi même si beaucoup moins que 17OHP.
+**TO DO: mieux comprendre les résultats du modèle**
 ```{r}
 ranef(mod_17ohp)
 ```
@@ -98,5 +99,37 @@ ggplot(df_model, aes(x = steroid_17OHP, y = prob)) +
   geom_point(aes(y = as.numeric(Groupe_bin)-1), alpha = 0.2) +
   geom_smooth(method = "loess", se = FALSE, color = "red", span = 0.8)
 
+```
+Voir si l'effet du log change quelque chose:
+```{r}
+m17 <- glmer(
+  Groupe_bin ~ steroid_17OHP +
+    Gender  + Puberty_stage_simple+
+    (1 | Patient_number),
+  data = df_d,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+summary(m17)
+```
+On a mis un log comme le suggérait le papier sur les profils stéroidiens extraits grâce à l'urine. On voit que ça aide le modèle, en effet ça symétrise plus la distributions et enlève les valeurs extremes.
+
+Essayons maintenant une autre modélisation, mais d'abord on va rajouter la notion des jours dans les données et dans le modèle:
+```{r}
+df$day <- as.numeric(sub(".*T", "", df$PATIENT))
+df_dd <-df %>%
+  select(Patient_number, Gender, Puberty_stage_simple,
+         Time, steroid_17OHP, Groupe_bin,day)
+```
+Maintenant le modèle prenant en compte les jours:
+```{r}
+m17day <- glmer(
+  Groupe_bin ~ log(steroid_17OHP+1e-6)+
+  Gender  + Puberty_stage_simple+ (1|Patient_number:day)+(1 | Patient_number),
+  data = df_dd,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+summary(m17day)
 ```
 
