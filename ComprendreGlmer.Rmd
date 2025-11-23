@@ -86,3 +86,72 @@ ggplot(sleepstudy, aes(x = Days, y = Reaction)) +
   geom_smooth(method = "lm", se = FALSE, colour = "green", linewidth = 0.5)
 ```
 Ici on met en évidence le shrinkage d'information avec un random effect. Pour cela on compare les droites vertes et rouges. Le vert correspond à un RL sur chaque subject indépendamment (no pooling) tandis que le rouge (partial pooling) correspond à notre mixed effects RL. On voit que les droites rouges se rapprochent plus des droites noires: la droite globale tracée au début (complete pooling).
+
+Désormais, on cherche à comprendre la significativité du modèle.
+
+```{r}
+
+lm_null <- lm(Reaction ~ 1, data = sleepstudy)
+anova(lme_sleep2, lm_null)
+```
+On voit que notre modèle est plus performant que le modèle null
+
+#Exo sur les dragons 5
+
+```{r}
+data("dragons")
+```
+
+```{r}
+head(dragons)
+```
+```{r}
+library(tidyr)
+
+dragons_clean <- dragons |>
+  separate(
+    col = dragon.wingspan.scales.intelligence.mountain,
+    into = c("id", "wingspan", "scales", "intelligence", "mountain"),
+    sep = ","
+  )
+dragons_clean$wingspan <- as.numeric(dragons_clean$wingspan)
+dragons_clean$intelligence <- as.numeric(dragons_clean$intelligence)
+dragons_clean$scales_num <- ifelse(dragons_clean$scales == "chromatic", 1, 0)
+ggplot(dragons_clean, aes(y = intelligence, x = wingspan,color=mountain)) +
+  geom_point() 
+
+```
+On voit qu'un régréssion linéaire fera en effet sûrement le travail pour prédire wingspan avec intelligence et les écailles de dragon.
+
+```{r}
+lm_drag <- lmer(intelligence ~ wingspan*scales + (1 +wingspan |mountain), data = dragons_clean)
+
+summary(lm_drag)
+```
+```{r}
+ggplot(augment(lm_drag), aes(x = wingspan, y = intelligence, colour = scales)) +
+  facet_wrap(vars(mountain)) +
+  geom_point() +
+  geom_line(aes(y = .fitted))
+```
+```{r}
+lm_drag2 <- lmer(intelligence ~ wingspan:scales + (1 +wingspan |mountain), data = dragons_clean)
+
+summary(lm_drag2)
+```
+Ce qui est intéréssant de voir c'est que le modèle converge pas si on enlève l'intéraction wingspan:scale. ça veut dire que à priori les écailles changent vraiment la donne et wingspan a une pente différente en fonction de si c'est chromatic ou metallic.
+
+#exercice 6.6
+
+```{r}
+lm_null1 <- lm(intelligence ~ 1, data = dragons_clean)
+anova(lm_drag, lm_null1)
+```
+```{r}
+lme_dragons_dropx <- lmer(intelligence ~ wingspan + scales + (1 + wingspan|mountain), 
+                          data = dragons_clean)
+
+anova(lm_drag, lme_dragons_dropx)
+```
+Dans le corrigé, il est écrit que le modèle converge et qu'on voit que wingspan:scale a aucun impact, mais bon chez moi il ne converge pas...
+
