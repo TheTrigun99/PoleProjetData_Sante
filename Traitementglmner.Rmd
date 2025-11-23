@@ -54,3 +54,34 @@ df_d<- df %>%
 ```
 
 On va maintenant lancer le modèle.
+```{r}
+mod_17ohp <- glmer(
+  Groupe_bin ~ log(steroid_17OHP + 1e-6) +
+    Gender  + Puberty_stage_simple+
+    (1 | Patient_number),
+  data = df_d,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+summary(mod_17ohp)
+```
+On voit que le steroid a un effet très significatif pour prédire le groupe. Gender importe aussi même si beaucoup moins que 17OHP.
+```{r}
+ranef(mod_17ohp)
+```
+```{r}
+df_model <- model.frame(mod_17ohp)# uniquement les lignes complètes
+
+df_model$steroid_17OHP <- model.frame(mod_17ohp)[[ "log(steroid_17OHP + 1e-06)" ]]
+df_model$fitted <- fitted(mod_17ohp)
+df_model$prob <- fitted(mod_17ohp)
+
+df_model <- df_model[order(df_model$steroid_17OHP), ]
+# Plot
+library(ggplot2)
+ggplot(df_model, aes(x = steroid_17OHP, y = prob)) +
+  geom_point(aes(y = as.numeric(Groupe_bin)-1), alpha = 0.2) +
+  geom_smooth(method = "loess", se = FALSE, color = "red", span = 0.8)
+
+```
+
