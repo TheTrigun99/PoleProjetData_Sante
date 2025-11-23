@@ -132,4 +132,18 @@ m17day <- glmer(
 )
 summary(m17day)
 ```
+```{r}
+df_model2 <- model.frame(m17day)
+df_model2$prob <- predict(m17day, type = "response")
+df_model2$steroid_17OHP <- model.frame(mod_17ohp)[[ "log(steroid_17OHP + 1e-06)" ]]
+df_plot <- df_model2 %>%
+  arrange(steroid_17OHP)
 
+ggplot(df_plot, aes(steroid_17OHP, prob,color=Patient_number)) +
+  geom_point(alpha = 0.3) +
+  geom_line(color = "blue") +
+  labs(y = "Probabilité prédite")
+```
+Bon le graphe est pas très joli mais on voit que si le 17OHP est trop grand, nécéssairement, le patient sera non contrôlé (chose qu'on a pu voir avec l'analyse préliminaire aussi)
+
+**TO DO : Expliquer chaque variable/facteur/corrélation dans le summary des modèles**
