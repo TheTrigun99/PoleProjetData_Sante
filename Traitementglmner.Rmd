@@ -7,6 +7,7 @@ library(dplyr)
 library(readxl)
 library(stringr)
 library(tidyr)
+library(ggplot2)
 ```
 
 import des données
@@ -52,6 +53,20 @@ df_d<- df %>%
   select(Patient_number, Gender, Puberty_stage_simple,
          Time, steroid_17OHP, Groupe_bin)
 ```
+On va déjà peut être un peu voir à quoi ressemble les données.
+```{r}
+
+ggplot(df_d, aes(x = Time, y =  steroid_17OHP, color=Groupe_bin)) +
+  geom_point()+facet_wrap(facets = vars(Patient_number), nrow = 3)
+```
+**0 == contrôlé**
+**1 == non contrôlé**
+On voit clairement une différence de valeurs entre le groupe contrôlé et le groupe non contrôlé. On a néanmoins des cas plus compliqués comme le patient 9 qui à priori devrait être contrôlé. Il faut prendre en considération le fait qu'on ne mesure pas que du 17OHP et que vraisemblablement d'autres hormones sont en cause.
+
+*TO DO: voir Patient 9 et s'occuper des missing values*
+
+Beaucoup de valeurs sont à 0.06, c'est vraisemblablement la limite de l'appareil médical qui mesure probablement des valeurs en dessous 0.06 (c'est donc le plancher de l'appareil).
+
 
 On va maintenant lancer le modèle.
 ```{r}
