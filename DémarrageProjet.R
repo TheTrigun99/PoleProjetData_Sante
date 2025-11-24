@@ -12,8 +12,8 @@ df <- df %>%
   )
 # 
 # Log-transformation du stéroïde choisi histoire de normaliser
-df <- df %>%
-  # mutate(log_steroid = log(`8h_CORTISONE` + 1e-6)) # Ajouter un petit constant pour éviter log(0)
+df <- df%>%mutate(log_steroid = log(`8h_CORTISONE` + 1e-6)) # Ajouter un petit constant pour éviter log(0)
+
 df$Groupe <- factor(df$Groupe, levels = c("Gp non contrôlé", "Gp contrôlé"))
 # Modèle mixte logistique
 model <- glmer(Groupe ~ log_steroid + Time_Point +Gender+`Puberty stage`+ (1 | Patient_number),

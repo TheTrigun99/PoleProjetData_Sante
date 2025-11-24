@@ -12,6 +12,8 @@ df <- df %>%
     ),
     Puberty_stage_simple = factor(Puberty_stage_simple)
   )
+
+## Passage au format long : une ligne pour un patient*time + on rend binaire certaines variables (pq puberty ? ) 
 df_long_17OHP <- df %>%
   pivot_longer(
     cols = c(`8h_17OHP`, `12h_17OHP`, `16h_17OHP`, `20h_17OHP`),
@@ -29,9 +31,13 @@ df_long_17OHP <- df %>%
     `Puberty stage` = factor(`Puberty stage`),
     Patient_number = factor(`Patient number`)
   )
+
+##Là on garde juste 6 variables
 df_17OHP <- df_long_17OHP %>%
   select(Patient_number, Gender, Puberty_stage_simple,
          Time, steroid, Groupe_bin)
+
+## Le modèle glmer, avec famille binomiale
 mod_17OHP_time <- glmer(
   Groupe_bin ~ log(steroid + 1e-6) +
     Gender  + Puberty_stage_simple+

@@ -46,6 +46,8 @@ df <- df %>%
     ),
     Puberty_stage_simple = factor(Puberty_stage_simple)
   )
+
+head(df)
 ```
 Comme on s'intérèsse que au 17OHP pour l'instant, on garde que ce qui nous intéresse:
 ```{r}
