@@ -63,6 +63,7 @@ ggplot(df_d, aes(x = Time, y =  steroid_17OHP, color=Groupe_bin)) +
 **1 == non contrôlé**
 On voit clairement une différence de valeurs entre le groupe contrôlé et le groupe non contrôlé. On a néanmoins des cas plus compliqués comme le patient 9 qui à priori devrait être contrôlé. Il faut prendre en considération le fait qu'on ne mesure pas que du 17OHP et que vraisemblablement d'autres hormones sont en cause.
 
+Y'a aussi des valeurs bizarres
 *TO DO: voir Patient 9 et s'occuper des missing values*
 
 Beaucoup de valeurs sont à 0.06, c'est vraisemblablement la limite de l'appareil médical qui mesure probablement des valeurs en dessous 0.06 (c'est donc le plancher de l'appareil).
@@ -121,6 +122,13 @@ df_dd <-df %>%
   select(Patient_number, Gender, Puberty_stage_simple,
          Time, steroid_17OHP, Groupe_bin,day)
 ```
+
+```{r}
+ggplot(df_dd, aes(x = Time, y =  steroid_17OHP, color=as.factor(day),shape=Groupe_bin)) +
+  geom_point()+facet_wrap(facets = vars(Patient_number), nrow = 3)
+```
+Plot intéréssant qui permet de vraiment y voir plus clair. à priori dès que le 17OHP monte un peu c'est non contrôlé.
+
 Maintenant le modèle prenant en compte les jours:
 ```{r}
 m17day <- glmer(
@@ -132,6 +140,9 @@ m17day <- glmer(
 )
 summary(m17day)
 ```
+On voit avec la variance de l'intercept (207), que les patients sont très différents entre eux. On a une variance gigantesque sur l'interaction patient:jour, on l'explique car on n'a que 1 mesure par jour donc normal que ça plante. Les coefficients sont trop gros (bizarre)
+
+
 ```{r}
 df_model2 <- model.frame(m17day)# uniquement les lignes complètes
 
