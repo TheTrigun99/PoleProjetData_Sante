@@ -17,7 +17,7 @@ head(df)
 ```
 On passe en format long pour donner le temps de la journée au modèle. On va d'abord se concentrer sur un seul stéroide pour commencer, ici 17OHP.
 ```{r}
-df <- df %>%
+df_l1 <- df %>%
   pivot_longer(
     cols = c(`8h_17OHP`, `12h_17OHP`, `16h_17OHP`, `20h_17OHP`),
     names_to = "Time",
@@ -38,7 +38,7 @@ df <- df %>%
 
 On enlève l'instabilité (on a pas assez de donnée et les données sont trop disperses sur Puberté, donc on coupe en 2 cas pour + de stabilité)
 ```{r}
-df <- df %>%
+df_l1 <- df_l1 %>%
   mutate(
     Puberty_stage_simple = case_when(
       `Puberty stage` %in% c(1, 2) ~ "prepubertal",
@@ -49,7 +49,7 @@ df <- df %>%
 ```
 Comme on s'intérèsse que au 17OHP pour l'instant, on garde que ce qui nous intéresse:
 ```{r}
-df_d<- df %>%
+df_d<- df_l1 %>%
   select(Patient_number, Gender, Puberty_stage_simple,
          Time, steroid_17OHP, Groupe_bin)
 ```
@@ -73,7 +73,7 @@ On va maintenant lancer le modèle.
 ```{r}
 mod_17ohp <- glmer(
   Groupe_bin ~ log(steroid_17OHP + 1e-6) +
-    Gender  + Puberty_stage_simple+
+    Time+ Gender  + Puberty_stage_simple+
     (1 | Patient_number),
   data = df_d,
   family = binomial,
@@ -83,9 +83,12 @@ summary(mod_17ohp)
 ```
 On voit que le steroid a un effet très significatif pour prédire le groupe. Gender importe aussi même si beaucoup moins que 17OHP.
 **TO DO: mieux comprendre les résultats du modèle**
+
 ```{r}
 ranef(mod_17ohp)
 ```
+C'est intéréssant, on voit qu'on pourrait regrouper des patients qui ont le même intercept
+
 ```{r}
 df_model <- model.frame(mod_17ohp)# uniquement les lignes complètes
 
@@ -115,10 +118,28 @@ summary(m17)
 ```
 On a mis un log comme le suggérait le papier sur les profils stéroidiens extraits grâce à l'urine. On voit que ça aide le modèle, en effet ça symétrise plus la distributions et enlève les valeurs extremes.
 
+Regardons si notre modèle est meilleur que le modèle nul:
+```{r}
+df_used <- model.frame(m17)
+m17_refit <- glmer(
+  Groupe_bin ~ steroid_17OHP + Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_used,
+  family = binomial
+)
+
+m_null <- glmer(Groupe_bin ~ 1 + (1 | Patient_number),
+                data = df_used,
+                family = binomial)
+
+anova(m_null, m17_refit)
+```
+
+
 Essayons maintenant une autre modélisation, mais d'abord on va rajouter la notion des jours dans les données et dans le modèle:
 ```{r}
-df$day <- as.numeric(sub(".*T", "", df$PATIENT))
-df_dd <-df %>%
+df_l1$day <- as.numeric(sub(".*T", "", df_l1$PATIENT))
+df_dd <-df_l1 %>%
   select(Patient_number, Gender, Puberty_stage_simple,
          Time, steroid_17OHP, Groupe_bin,day)
 ```
@@ -143,6 +164,7 @@ summary(m17day)
 On voit avec la variance de l'intercept (207), que les patients sont très différents entre eux. On a une variance gigantesque sur l'interaction patient:jour, on l'explique car on n'a que 1 mesure par jour donc normal que ça plante. Les coefficients sont trop gros (bizarre)
 
 
+
 ```{r}
 df_model2 <- model.frame(m17day)# uniquement les lignes complètes
 
@@ -159,3 +181,116 @@ ggplot(df_model2, aes(x = steroid_17OHP, y = prob)) +
 ```
 **TO DO : Expliquer chaque variable/facteur/corrélation dans le summary des modèles**
 Bon le graphe est pas très joli mais on voit que si le 17OHP est trop grand, nécéssairement, le patient sera non contrôlé (chose qu'on a pu voir avec l'analyse préliminaire aussi)
+
+
+```{r}
+hormones <- df %>%
+  select(starts_with("8h_")) %>%
+  names() %>%
+  gsub("8h_", "", .)
+hormones
+```
+```{r}
+df_l <- df %>%
+  pivot_longer(
+    cols = matches("^(8h|12h|16h|20h)_"),
+    names_to = c("Time", "Hormone"),
+    names_pattern = "([0-9]+h)_(.*)",
+    values_to = "Value"
+  ) %>%
+  mutate(
+    Time = gsub("h", "", Time),
+    Time = factor(Time, levels = c("8", "12", "16", "20")),
+  )
+```
+
+```{r}
+df_w <- df_l %>%
+  pivot_wider(
+    names_from = Hormone,
+    values_from = Value
+  )
+```
+
+```{r}
+df_w <- df_w %>%
+  mutate(
+    Groupe_bin = ifelse(Groupe == "Gp non contrôlé", 1, 0),
+    Groupe_bin = factor(Groupe_bin),
+    Gender = factor(Gender),
+    Patient_number = factor(`Patient number`)
+  )
+
+df_w <- df_w %>%
+  mutate(
+    Puberty_stage_simple = case_when(
+      `Puberty stage` %in% c(1, 2) ~ "prepubertal",
+      TRUE ~ "pubertal"
+    ),
+    Puberty_stage_simple = factor(Puberty_stage_simple)
+  )
+df_w$day <- as.numeric(sub(".*T", "", df_w$PATIENT))
+df_w<- df_w %>%
+  select(-Groupe,-`Puberty stage`,-PATIENT)
+```
+
+```{r}
+ggplot(df_w, aes(x = Time, y =ALDOSTERONE  , color=as.factor(day),shape=Groupe_bin)) +
+  geom_point()+facet_wrap(facets = vars(Patient_number), nrow = 3)
+```
+
+```{r}
+m_ald <- glmer(
+  Groupe_bin ~ log(`11 CETOTESTO`+1e-6)+
+    Gender  + Puberty_stage_simple+Time+
+    (1 | Patient_number),
+  data = df_w,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+summary(m_ald)
+```
+
+Les hormones qui fonctionnent bien: 21DE et 17OHP et 11 CETOTESTO
+
+```{r}
+df_wide_std <- df_w %>%
+  mutate(across(all_of(hormones), scale))
+fit_one <- function(h) {
+  # Backticks pour noms avec espaces
+  h_clean <- paste0("`", h, "`")
+  
+  # Construire la formule
+  form <- as.formula(
+    paste0("Groupe_bin ~ Time + ", h_clean,
+           " + Gender + Puberty_stage_simple + (1 | Patient_number)")
+  )
+  
+  # Fit
+  m <- glmer(form, data = df_wide_std, family = binomial)
+  
+  coefs <- summary(m)$coefficients
+  
+  # Le nom réel dans la matrice des coefficients
+  # est exactement h_clean (donc avec backticks)
+  rowname <- h_clean
+  
+  # Si la variable n’a pas été incluse, retourner NA
+  if (!rowname %in% rownames(coefs)) {
+    return(c(hormone = h, beta = NA, p = NA))
+  }
+  
+  s <- coefs[rowname, ]
+  
+  c(hormone = h,
+    beta = s["Estimate"],
+    p = s["Pr(>|z|)"])
+}
+
+
+res_uni <- do.call(rbind, lapply(hormones, fit_one))
+res_uni <- as.data.frame(res_uni)
+res_uni$p <- as.numeric(res_uni$p)
+res_uni[order(res_uni$p), ]
+```
+

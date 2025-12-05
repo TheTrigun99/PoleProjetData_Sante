@@ -155,3 +155,6 @@ anova(lm_drag, lme_dragons_dropx)
 ```
 Dans le corrigé, il est écrit que le modèle converge et qu'on voit que wingspan:scale a aucun impact, mais bon chez moi il ne converge pas...
 
+#GLMER Binomial
+
+Maintenant, on vient au modèle des mixed effects avec des binomials.
