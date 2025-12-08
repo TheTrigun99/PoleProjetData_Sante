@@ -240,18 +240,30 @@ ggplot(df_w, aes(x = Time, y =ALDOSTERONE  , color=as.factor(day),shape=Groupe_b
 ```
 
 ```{r}
-m_ald <- glmer(
-  Groupe_bin ~ log(`11 CETOTESTO`+1e-6)+
-    Gender  + Puberty_stage_simple+Time+
+m_ald <- lmer(
+  log(`17OHP` + 1e-6) ~ Time + Groupe_bin +
+    Gender + Puberty_stage_simple +
     (1 | Patient_number),
-  data = df_w,
-  family = binomial,
-  control = glmerControl(optimizer = "bobyqa")
+  data = df_w
 )
 summary(m_ald)
 ```
 
 Les hormones qui fonctionnent bien: 21DE et 17OHP et 11 CETOTESTO
+```{r}
+df_used <- model.frame(m_ald)
+df_used$pred <- predict(m_ald)
+df_used$resid <- residuals(m_ald)
+
+ggplot(df_used, aes(x = Time, y = pred, color = as.factor(Groupe_bin))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(se = FALSE, method = "loess") +
+  labs(
+    y = "log(17OHP) prédit",
+    color = "Groupe"
+  )
+```
+
 
 ```{r}
 df_wide_std <- df_w %>%
