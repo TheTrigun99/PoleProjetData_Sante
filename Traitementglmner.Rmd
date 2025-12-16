@@ -240,28 +240,146 @@ ggplot(df_w, aes(x = Time, y =ALDOSTERONE  , color=as.factor(day),shape=Groupe_b
 ```
 
 ```{r}
+df_w$Time_num <- as.numeric(as.character(df_w$Time))  # si tes labels sont 12/16/20 etc
+df_w$Time_c <- scale(df_w$Time_num, center=TRUE, scale=FALSE)
+```
+
+```{r}
+m_17op <- lmer(
+  log(`17OHP` + 1e-6) ~ Time_c + Groupe_bin +
+    Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_w
+)
+summary(m_17op)
+```
+
+Les hormones qui fonctionnent bien: 21DE et 17OHP et 11 CETOTESTO
+```{r}
+df_used <- model.frame(m_17op)
+df_used$pred <- predict(m_17op)
+df_used$resid <- residuals(m_17op)
+
+ggplot(df_used, aes(x = Time_c, y = pred, color = as.factor(Groupe_bin))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(se = TRUE, method = "lm") +
+  labs(
+    y = "log(17OHP) prédit",
+    color = "Groupe"
+  )
+```
+ici on voit bien qu'être groupe 1 ou 0 change la donne, le groupe 1 (non contrôlé) a en moyenne 5x plus de 17OHP que le groupe 0.
+
+```{r}
+resi <- resid(m_17op)
+qqnorm(resi)
+qqline(resi, col = "red")
+```
+Les résidus sont donc bien normaux. ça nous permet d'accepter l'interprétation des coefficients du modèle et sa crédibilité.
+
+Test de l'hypothèse nulle
+
+```{r}
+M0 <- lmer(
+  log(`17OHP` + 1e-6) ~ Time_c + Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_w,
+  REML = FALSE
+)
+
+M1 <- lmer(
+  log(`17OHP` + 1e-6) ~ Time_c + Groupe_bin + Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_w,
+  REML = FALSE
+)
+anova(M0, M1)
+```
+Génial, ici on voit bien qu'on peut associer un effet entre groupe (1 ou 0) et 17OHP
+
+```{r}
 m_ald <- lmer(
-  log(`17OHP` + 1e-6) ~ Time + Groupe_bin +
+  log(`ALDOSTERONE` + 1e-6) ~ Time_c + Groupe_bin +
     Gender + Puberty_stage_simple +
     (1 | Patient_number),
   data = df_w
 )
 summary(m_ald)
 ```
-
-Les hormones qui fonctionnent bien: 21DE et 17OHP et 11 CETOTESTO
 ```{r}
-df_used <- model.frame(m_ald)
-df_used$pred <- predict(m_ald)
-df_used$resid <- residuals(m_ald)
+M0 <- lmer(
+  log(`ALDOSTERONE` + 1e-6) ~ Time_c + Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_w,
+  REML = FALSE
+)
 
-ggplot(df_used, aes(x = Time, y = pred, color = as.factor(Groupe_bin))) +
-  geom_point(alpha = 0.3) +
-  geom_smooth(se = FALSE, method = "loess") +
-  labs(
-    y = "log(17OHP) prédit",
-    color = "Groupe"
+M1 <- lmer(
+  log(`ALDOSTERONE` + 1e-6) ~ Time_c + Groupe_bin + Gender + Puberty_stage_simple +
+    (1 | Patient_number),
+  data = df_w,
+  REML = FALSE
+)
+anova(M0, M1)
+resi_ald <- resid(m_ald)
+qqnorm(resi_ald)
+qqline(resi_ald, col = "red")
+```
+L'aldosterone a pas d'impact et les résidus ne sont pas normaux.
+```{r}
+analyze_hormone_lmm <- function(hormone,
+                                data,
+                                time_var = "Time_c",
+                                group_var = "Groupe_bin",
+                                gender_var = "Gender",
+                                puberty_var = "Puberty_stage_simple",
+                                patient_var = "Patient_number",
+                                eps = 1e-6,
+                                plot_qq = TRUE) {
+
+  # 1) Construire la formule proprement
+  y <- paste0("log(`", hormone, "` + ", eps, ")")
+
+  fixed_full <- paste(time_var, group_var, gender_var, puberty_var, sep = " + ")
+  fixed_null <- paste(time_var, gender_var, puberty_var, sep = " + ")
+
+  rand <- paste0("(1 | ", patient_var, ")")
+
+  formula_full <- as.formula(paste(y, "~", fixed_full, "+", rand))
+  formula_null <- as.formula(paste(y, "~", fixed_null, "+", rand))
+
+  # 2) Fit des modèles
+  m_full_reml <- lmer(formula_full, data = data, REML = TRUE)
+
+  m0 <- lmer(formula_null, data = data, REML = FALSE)
+  m1 <- lmer(formula_full, data = data, REML = FALSE)
+
+  # 3) LRT
+  lrt <- anova(m0, m1)
+
+  # 4) Résidus
+  res <- resid(m_full_reml)
+
+  # 5) QQ-plot
+  if (plot_qq) {
+    qqnorm(res, main = paste("QQ-plot résidus :", hormone))
+    qqline(res, col = "red")
+  }
+
+  # 6) Résumé clair à retourner
+  list(
+    hormone = hormone,
+    model_REML = summary(m_full_reml),
+    LRT = lrt,
+    coef_group = summary(m_full_reml)$coefficients[group_var, ],
+    residuals = res
   )
+}
+
+```
+
+```{r}
+res_andro <- analyze_hormone_lmm("ANDROSTENEDIONE", df_w)
 ```
 
 
@@ -306,3 +424,6 @@ res_uni$p <- as.numeric(res_uni$p)
 res_uni[order(res_uni$p), ]
 ```
 
+#TODO
+Voir testoterone (QQplot aberrant mais modèle Groupe bin permet de prédire)
+11 BOH4 a l'air pas mal si on enlève quelques points
