@@ -246,7 +246,7 @@ df_w$Time_c <- scale(df_w$Time_num, center=TRUE, scale=FALSE)
 
 ```{r}
 m_17op <- lmer(
-  log(`17OHP` + 1e-6) ~ Time_c + Groupe_bin +
+  log(`11 CETOTESTO` + 1e-6) ~ Time + Groupe_bin +
     Gender + Puberty_stage_simple +
     (1 | Patient_number),
   data = df_w
@@ -260,11 +260,11 @@ df_used <- model.frame(m_17op)
 df_used$pred <- predict(m_17op)
 df_used$resid <- residuals(m_17op)
 
-ggplot(df_used, aes(x = Time_c, y = pred, color = as.factor(Groupe_bin))) +
+ggplot(df_used, aes(x = Time, y = pred, color = as.factor(Groupe_bin))) +
   geom_point(alpha = 0.3) +
-  geom_smooth(se = TRUE, method = "lm") +
+  geom_smooth(se = TRUE, method = "loess") +
   labs(
-    y = "log(17OHP) prédit",
+    y = "log( 11 CETOTESTO ) prédit",
     color = "Groupe"
   )
 ```
