@@ -217,6 +217,7 @@ df_w <- df_w %>%
   mutate(
     Groupe_bin = ifelse(Groupe == "Gp non contrôlé", 1, 0),
     Groupe_bin = factor(Groupe_bin),
+  
     Gender = factor(Gender),
     Patient_number = factor(`Patient number`)
   )
@@ -242,17 +243,51 @@ ggplot(df_w, aes(x = Time, y =ALDOSTERONE  , color=as.factor(day),shape=Groupe_b
 ```{r}
 df_w$Time_num <- as.numeric(as.character(df_w$Time))  # si tes labels sont 12/16/20 etc
 df_w$Time_c <- scale(df_w$Time_num, center=TRUE, scale=FALSE)
+df_w$form <-as.factor(df_w$Forme)
 ```
 
 ```{r}
+library(lmerTest)
+
 m_17op <- lmer(
-  log(`11 CETOTESTO` + 1e-6) ~ Time + Groupe_bin +
-    Gender + Puberty_stage_simple +
-    (1 | Patient_number),
+  log(`17OHP` + 1e-6) ~ Groupe_bin + Time +
+    Gender + Puberty_stage_simple +(1|Patient_number)
+    ,
   data = df_w
 )
 summary(m_17op)
+anova(m_17op)
 ```
+```{r}
+install.packages("tibble")
+library(tibble)
+re <- ranef(m_17op)$Patient_number %>%
+  rownames_to_column("Patient_number") %>%
+  rename(b0 = `(Intercept)`)
+
+# 2) grille de prédiction : un point par Time et par patient
+grid <- df_w %>%
+  distinct(Patient_number, Groupe_bin, Gender, Puberty_stage_simple) %>%
+  expand(Patient_number, Time = levels(df_w$Time)) %>%   # si Time est factor
+  left_join(df_w %>% distinct(Patient_number, Groupe_bin, Gender, Puberty_stage_simple),
+            by = "Patient_number") %>%
+  left_join(re, by = "Patient_number")
+
+# 3) prédiction fixe (sans effets aléatoires)
+grid$pred_fixed <- predict(m_17op, newdata = grid, re.form = NA)
+
+# 4) ajouter le biais spécifique patient
+grid$pred_patient <- grid$pred_fixed + grid$b0
+
+# 5) plot : points + modèle patient (ligne noire)
+ggplot(df_w, aes(x = Time, y = log(`17OHP` + 1e-6))) +
+  geom_point(aes(color = as.factor(day)), alpha = 0.7) +
+  geom_line(data = grid, aes(y = pred_patient, group = Patient_number),
+            color = "black", linewidth = 1) +
+  facet_wrap(~ Patient_number, nrow = 3) +
+  theme_bw()
+```
+
 
 Les hormones qui fonctionnent bien: 21DE et 17OHP et 11 CETOTESTO
 ```{r}
